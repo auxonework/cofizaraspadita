@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Raspadita Cofiza — v12.1 (1400 + dedup + CSV limpio)</title>
+  <style>
+    :root{ --rojo:#b30000; --rojo2:#ef4444; --gris:#e5e7eb; --texto:#0f172a }
+    *{box-sizing:border-box}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,sans-serif;margin:0;background:#fff;color:var(--texto)}
+    .top-menu{display:flex;align-items:center;gap:12px;justify-content:space-between;background:linear-gradient(90deg,var(--rojo),var(--rojo2));color:#fff;padding:12px 20px;position:sticky;top:0;z-index:20}
+    .menu-title{font-size:20px;font-weight:800;letter-spacing:.2px}
+    .menu-actions{display:flex;gap:10px}
+    .menu-btn{background:#fff;color:var(--rojo);border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:700;box-shadow:0 1px 0 rgba(0,0,0,.06)}
+    .menu-btn:hover{background:#ffe5e5}
+    main{max-width:1000px;margin:16px auto;padding:0 16px}
+    .card{border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.08)}
+    .card-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:linear-gradient(90deg,var(--rojo),var(--rojo2));color:#fff}
+    .card-meta{font-size:12px;opacity:.95}
+    .card-body{padding:16px;display:grid;gap:12px}
+    .grid{display:grid;grid-template-columns:1fr;gap:16px}
+    @media(min-width:720px){.grid{grid-template-columns:1.2fr .8fr}}
+    .panel{border:1px dashed #cbd5e1;border-radius:12px;padding:14px}
+    .label{font-size:12px;color:#64748b;margin-bottom:4px}
+    .nueve-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px;user-select:none}
+    .tile{position:relative;border-radius:14px;overflow:hidden;border:1px solid #e2e8f0;min-height:110px;background:#fff}
+    .tile-inner{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:10px;text-align:center}
+    .tile-inner h4{margin:0;font-size:18px}
+    .tile .scratch{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:grab;transition:opacity .4s ease-out}
+    .status{margin-top:10px;padding:10px 12px;border-radius:12px;background:#f1f5f9;color:#0f172a;font-weight:700}
+    dialog{border:none;border-radius:14px;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+    label{display:block;margin-top:8px;font-weight:700}
+    input,select{width:100%;padding:10px;margin-top:4px;border-radius:8px;border:1px solid #cbd5e1}
+    .btn{padding:10px 14px;border:none;border-radius:10px;cursor:pointer;font-weight:800}
+    .btn.success{background:linear-gradient(90deg,var(--rojo),var(--rojo2));color:#fff}
+    .btn.success:hover{filter:brightness(1.05)}
+    .btn.ghost{background:#e2e8f0;color:#334155}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:8px;border-bottom:1px solid #e5e7eb;text-align:left}
+    th{font-size:12px;text-transform:uppercase;color:#64748b}
+    .toast{position:fixed;bottom:20px;right:20px;background:linear-gradient(90deg,#b30000,#ef4444);color:#fff;padding:12px 18px;border-radius:12px;font-weight:700;box-shadow:0 4px 12px rgba(0,0,0,.2);opacity:0;pointer-events:none;transition:opacity .4s,transform .4s;transform:translateY(20px);z-index:99999}
+    .toast.show{opacity:1;transform:translateY(0);}
+  </style>
+</head>
+<body>
+
+  <div class="top-menu">
+    <div class="menu-title">Raspadita Cofiza — v12.1</div>
+    <div class="menu-actions">
+      <button id="btnNuevaTarjeta" class="menu-btn">Nueva tarjeta</button>
+      <button id="btnVerContadores" class="menu-btn">Ver contadores</button>
+    </div>
+  </div>
+
+  <main>
+    <div id="cardArea" style="text-align:center;padding:60px 20px;font-size:20px;font-weight:700;color:#b30000">
+      👋 Bienvenido. Haz clic en <strong>Nueva Tarjeta</strong> para empezar.
+    </div>
+  </main>
+
+  <!-- MODAL: Registro -->
+  <dialog id="startModal">
+    <h3 style="margin:0 0 8px">Antes de jugar</h3>
+    <p style="margin:0 0 12px;color:#475569">Ingresa tus datos para generar la tarjeta.</p>
+    <form id="startForm" method="dialog">
+      <label for="s_nombre">Nombre completo</label>
+      <input id="s_nombre" name="s_nombre" required minlength="3" />
+      <label for="s_cedula">Cédula</label>
+      <input id="s_cedula" name="s_cedula" required pattern="^[0-9]{10}$" title="Ingrese 10 dígitos" />
+      <label for="s_telefono">Teléfono</label>
+      <input id="s_telefono" name="s_telefono" required pattern="^[0-9]{9,10}$" title="Ingrese 9 o 10 dígitos" />
+      <label for="s_estado">Estado civil</label>
+      <select id="s_estado" name="s_estado" required>
+        <option value="">Seleccione...</option>
+        <option value="soltero">Soltero/a</option>
+        <option value="casado">Casado/a</option>
+        <option value="divorciado">Divorciado/a</option>
+        <option value="viudo">Viudo/a</option>
+      </select>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
+        <button type="button" id="closeStart" class="btn ghost">Cerrar</button>
+        <button id="startSubmit" class="btn success">Crear tarjeta</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- MODAL: Ganador -->
+  <dialog id="winModal" style="max-width:520px;text-align:center">
+    <h2 style="margin:0 0 6px">🎉 ¡GANASTE! 🎉</h2>
+    <p>Has obtenido: <b id="winPrizeText" style="font-size:24px"></b></p>
+    <div style="display:flex;gap:10px;justify-content:center;margin-top:10px">
+      <button id="closeWin" type="button" class="btn success">Aceptar</button>
+    </div>
+  </dialog>
+
+  <!-- MODAL: Referido -->
+  <dialog id="referModal">
+    <h3 style="margin:0 0 8px">🙌 ¡Sigue participando!</h3>
+    <p class="note">Esta tarjeta no tiene premio. <strong>Tienes otra oportunidad si nos dejas un referido</strong>.</p>
+    <form id="referForm" method="dialog">
+      <label for="r_nombre">Nombre del referido</label>
+      <input id="r_nombre" name="r_nombre" required minlength="3" />
+      <label for="r_cel">Celular del referido</label>
+      <input id="r_cel" name="r_cel" required pattern="^[0-9]{9,10}$" title="Ingrese 9 o 10 dígitos" />
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
+        <button type="button" class="btn ghost" id="noRefer">No quiero</button>
+        <button class="btn success" id="sendRefer" type="button">Enviar referido</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- MODAL: Contadores -->
+  <dialog id="countersModal" style="max-width:820px">
+    <h3 style="margin:0 0 8px">Contadores</h3>
+    <div id="countersWrap"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px">
+      <button id="downloadCsvInModal" class="btn">Descargar Excel (CSV)</button>
+      <button id="closeCounters" class="btn ghost">Cerrar</button>
+    </div>
+  </dialog>
+
+  <script>
+  // ===================
+  //  Configuración base (v12.1)
+  // ===================
+  const CONFIG = {
+    TOTAL_TARJETAS: 1400,
+    PREMIOS: {
+      "DESCUENTO 7%": 15,
+      "CUADERNO": 22,
+      "TAZA": 22,
+      "ESFERO": 200,
+      "PASE DÍA": 25,
+      "CENA EN EL OLIVO": 2
+    },
+    CUOTA_350: {
+      "DESCUENTO 7%": 4,
+      "CUADERNO": 5,
+      "TAZA": 5,
+      "ESFERO": 25,
+      "PASE DÍA": 6
+    },
+    CUOTA_700: {
+      "CENA EN EL OLIVO": 1
+    },
+    SYMBOLS: {
+      "PASE DÍA":"🎫",
+      "DESCUENTO 7%":"%",
+      "CENA EN EL OLIVO":"🍽️",
+      "ESFERO":"🖊️",
+      "CUADERNO":"📒",
+      "TAZA":"☕",
+      "CASA":"🏠","CLUB":"🏇","ESTRELLA":"⭐","CORAZÓN":"❤","COFIZA":"🏢"
+    },
+    DISTRACTORS: ["CASA","CLUB","ESTRELLA","CORAZÓN","COFIZA"],
+    STORAGE_KEYS: { POOL:"cofiza_pool_v12_1", IDX:"cofiza_idx_v12_1", CARDS:"cofiza_cards_v12_1", LOGS:"cofiza_logs_v12_1" }
+  };
+
+  // ===== Utilidades =====
+  const saveLS = (k,v)=>localStorage.setItem(k, JSON.stringify(v));
+  const getLS  = (k,d=null)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch{ return d }};
+  const pad = (n,len=4)=>String(n).padStart(len,'0');
+  const tokenGen = (len=12)=>{const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let out=''; const a=new Uint32Array(len); crypto.getRandomValues(a); for(let i=0;i<len;i++){out+=chars[a[i]%chars.length]} return out};
+  const rng = n => Math.floor(Math.random() * n);
+  function shuffle(arr){ for(let i=arr.length-1;i>0;i--){ const j=rng(i+1); [arr[i],arr[j]]=[arr[j],arr[i]]; } return arr; }
+
+  // ===== POOL con control por segmentos de 350 y regla 700 =====
+  function buildPool(){
+    const SEG = 350;
+    const TOTAL = CONFIG.TOTAL_TARJETAS; // 1400
+    const bloques = Math.ceil(TOTAL / SEG); // 4
+    const perSeg = Array.from({length: bloques}, ()=>({}));
+
+    // 1) Asignar cuotas base por segmento (350)
+    for(let b=0; b<bloques; b++){
+      for(const [k,v] of Object.entries(CONFIG.CUOTA_350)){
+        perSeg[b][k] = (perSeg[b][k]||0) + v;
+      }
+    }
+
+    // 2) Cuotas por 700: 1 cena en [0..699] y 1 en [700..1399]
+    const groupA = rng(2);         // 0 o 1
+    const groupB = 2 + rng(2);     // 2 o 3
+    perSeg[groupA]["CENA EN EL OLIVO"] = (perSeg[groupA]["CENA EN EL OLIVO"]||0) + 1;
+    perSeg[groupB]["CENA EN EL OLIVO"] = (perSeg[groupB]["CENA EN EL OLIVO"]||0) + 1;
+
+    // 3) Ajustar para alcanzar totales globales exactos
+    const acumulado = Object.create(null);
+    function addAcum(k, v){ acumulado[k]=(acumulado[k]||0)+v; }
+    for(const seg of perSeg){ for(const [k,v] of Object.entries(seg)) addAcum(k,v); }
+
+    for(const [premio, totalDeseado] of Object.entries(CONFIG.PREMIOS)){
+      const actual = acumulado[premio]||0;
+      let delta = totalDeseado - actual;
+      if(delta > 0){
+        while(delta > 0){
+          const idx = rng(bloques);
+          perSeg[idx][premio] = (perSeg[idx][premio]||0) + 1;
+          delta--; acumulado[premio] = (acumulado[premio]||0) + 1;
+        }
+      } else if (delta < 0){
+        delta = -delta;
+        let guard = 10000;
+        while(delta > 0 && guard--){
+          const idx = rng(bloques);
+          if((perSeg[idx][premio]||0) > 0){
+            perSeg[idx][premio] -= 1;
+            delta--; acumulado[premio] -= 1;
+          }
+        }
+      }
+    }
+
+    // 4) Generar pool por segmento y mezclar
+    const pool = [];
+    for(let b=0; b<bloques; b++){
+      const segArr = [];
+      for(const [k,v] of Object.entries(perSeg[b])){
+        for(let i=0;i<v;i++) segArr.push(k);
+      }
+      while(segArr.length < SEG) segArr.push("SIN PREMIO");
+      // Mezcla con crypto
+      for(let i=segArr.length-1;i>0;i--){
+        const u = crypto.getRandomValues(new Uint32Array(1))[0] / (2**32);
+        const r = Math.floor(u*(i+1));
+        [segArr[i], segArr[r]] = [segArr[r], segArr[i]];
+      }
+      pool.push(...segArr);
+    }
+    return pool.slice(0, TOTAL);
+  }
+
+  function ensurePool(){
+    let pool = getLS(CONFIG.STORAGE_KEYS.POOL);
+    if(!pool || !Array.isArray(pool) || pool.length !== CONFIG.TOTAL_TARJETAS){
+      pool = buildPool();
+      saveLS(CONFIG.STORAGE_KEYS.POOL, pool);
+      saveLS(CONFIG.STORAGE_KEYS.IDX, 0);
+      saveLS(CONFIG.STORAGE_KEYS.CARDS, []);
+      saveLS(CONFIG.STORAGE_KEYS.LOGS, []);
+    }
+  }
+  function nextPrize(){
+    ensurePool();
+    let idx = getLS(CONFIG.STORAGE_KEYS.IDX, 0);
+    const pool = getLS(CONFIG.STORAGE_KEYS.POOL);
+    if(idx >= CONFIG.TOTAL_TARJETAS) return null;
+    const prize = pool[idx];
+    saveLS(CONFIG.STORAGE_KEYS.IDX, idx+1);
+    return {prize, index: idx};
+  }
+
+  // ===== Logs & CSV (línea por línea) =====
+  function sanitizeForCSV(v){
+    if(v===null||v===undefined) return '';
+    return String(v).replaceAll('\n',' ').replaceAll('\r',' ').replaceAll(',', ' ').trim();
+  }
+  function pushLog(row){ const logs = getLS(CONFIG.STORAGE_KEYS.LOGS, []); logs.push(row); saveLS(CONFIG.STORAGE_KEYS.LOGS, logs); }
+  function buildCSVString(){
+    const logs=getLS(CONFIG.STORAGE_KEYS.LOGS, []);
+    const headers=['timestamp','evento','tarjeta_num','token','premio','nombre','cedula','telefono','estado','ref_nombre','ref_telefono'];
+    let csv = headers.join(',') + '\n';
+    for(const r of logs){
+      const vals=[
+        sanitizeForCSV(r.ts),
+        sanitizeForCSV(r.evento),
+        sanitizeForCSV(r.ticket),
+        sanitizeForCSV(r.token),
+        sanitizeForCSV(r.prize),
+        sanitizeForCSV(r.nombre),
+        sanitizeForCSV(r.cedula),
+        sanitizeForCSV(r.telefono),
+        sanitizeForCSV(r.estado),
+        sanitizeForCSV(r.ref_nombre),
+        sanitizeForCSV(r.ref_telefono)
+      ];
+      csv += vals.join(',') + '\n';
+    }
+    return csv;
+  }
+  function downloadCSV(){
+    const csv = buildCSVString();
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url; a.download=`Raspadita_Registros_${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+    showToast('✅ Registros exportados a CSV (línea por línea).');
+  }
+
+  // ===== Contadores =====
+  function registerCard(card){
+    const cards = getLS(CONFIG.STORAGE_KEYS.CARDS, []);
+    cards.push(card);
+    saveLS(CONFIG.STORAGE_KEYS.CARDS, cards);
+  }
+  function countDelivered(){
+    const cards = getLS(CONFIG.STORAGE_KEYS.CARDS, []);
+    const tipos = ["DESCUENTO 7%","CUADERNO","TAZA","ESFERO","PASE DÍA","CENA EN EL OLIVO","SIN PREMIO"];
+    const map = Object.fromEntries(tipos.map(t=>[t,0]));
+    for(const c of cards){ map[c.prize] = (map[c.prize]||0)+1 }
+    return {map, total: cards.length};
+  }
+  function renderCounters(){
+    ensurePool();
+    const wrap = document.getElementById('countersWrap');
+    const {map, total} = countDelivered();
+    const restantes = CONFIG.TOTAL_TARJETAS - total;
+    const sumaPremiosDef = Object.values(CONFIG.PREMIOS).reduce((a,b)=>a+b,0);
+    const rowsPremios = [
+      ["DESCUENTO 7%", CONFIG.PREMIOS["DESCUENTO 7%"]||0, map["DESCUENTO 7%"]||0],
+      ["CUADERNO", CONFIG.PREMIOS["CUADERNO"]||0, map["CUADERNO"]||0],
+      ["TAZA", CONFIG.PREMIOS["TAZA"]||0, map["TAZA"]||0],
+      ["ESFERO", CONFIG.PREMIOS["ESFERO"]||0, map["ESFERO"]||0],
+      ["PASE DÍA", CONFIG.PREMIOS["PASE DÍA"]||0, map["PASE DÍA"]||0],
+      ["CENA EN EL OLIVO", CONFIG.PREMIOS["CENA EN EL OLIVO"]||0, map["CENA EN EL OLIVO"]||0],
+      ["SIN PREMIO", CONFIG.TOTAL_TARJETAS - sumaPremiosDef, map["SIN PREMIO"]||0]
+    ];
+    wrap.innerHTML = `
+      <div class="panel" style="margin-bottom:10px">
+        <div class="label">Resumen</div>
+        <div class="value">Entregadas: ${total} / ${CONFIG.TOTAL_TARJETAS} &nbsp; · &nbsp; Restantes: ${restantes}</div>
+      </div>
+      <table>
+        <thead><tr><th>Premio</th><th>Definidos</th><th>Entregados</th></tr></thead>
+        <tbody>
+          ${rowsPremios.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
+  // ===== UI de tarjeta y juego =====
+  const cardArea = document.getElementById('cardArea');
+  function generateCardHTML({ticket, token, nombre, cedula, telefono, estado}){
+    return `
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div style="font-weight:800">Tarjeta #${ticket}</div>
+            <div class="card-meta">Token: ${token}</div>
+          </div>
+          <div class="card-meta">${new Date().toLocaleString()}</div>
+        </div>
+        <div class="card-body">
+          <div class="grid">
+            <div class="panel">
+              <div class="label">Raspadita</div>
+              <div class="nueve-grid" id="nineGrid"></div>
+              <div id="status" class="status">Raspa las casillas: si revelas <strong>3 iguales</strong>, ¡ganas!</div>
+            </div>
+            <div class="panel">
+              <div class="label">Datos del participante</div>
+              <div><b>Nombre:</b> ${nombre}</div>
+              <div><b>Cédula:</b> ${cedula}</div>
+              <div><b>Teléfono:</b> ${telefono}</div>
+              <div><b>Estado civil:</b> ${estado}</div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+  }
+  function renderCard(card){
+    cardArea.innerHTML = generateCardHTML(card);
+    buildBoard(card);
+  }
+
+  // ===== 9 casillas raspables =====
+  let tiles=[]; let gameOver=false;
+  function buildBoard(card){
+    tiles=[]; gameOver=false;
+    const grid = document.getElementById('nineGrid');
+    const cells = buildCellsForPrize(card.prize);
+    grid.innerHTML='';
+    for(const cell of cells){
+      const tile=document.createElement('div'); tile.className='tile';
+      const inner=document.createElement('div'); inner.className='tile-inner';
+      const h4=document.createElement('h4'); h4.textContent = labelFor(cell); inner.appendChild(h4);
+      tile.appendChild(inner);
+      const canvas=document.createElement('canvas'); canvas.className='scratch'; tile.appendChild(canvas);
+      grid.appendChild(tile);
+      const ctx=canvas.getContext('2d');
+      const t={el:tile, canvas, ctx, revealed:false, value:cell};
+      tiles.push(t);
+      setupScratchTile(t, card);
+    }
+  }
+  function labelFor(key){
+    const emoji = CONFIG.SYMBOLS[key] || '';
+    return `${emoji} ${key}`;
+  }
+  function buildCellsForPrize(prize){
+    const dist = CONFIG.DISTRACTORS;
+    if(prize && prize!=='SIN PREMIO'){
+      const filler = [];
+      while(filler.length < 6){
+        const pick = dist[rng(dist.length)];
+        const count = filler.filter(v=>v===pick).length;
+        if(count < 2) filler.push(pick);
+      }
+      return shuffle([...Array(3).fill(prize), ...filler]);
+    } else {
+      const cells=[]; const cap=2; const used={};
+      while(cells.length<9){
+        const p = dist[rng(dist.length)];
+        used[p]=(used[p]||0)+1;
+        if(used[p] <= cap) cells.push(p);
+        else used[p]-=1;
+      }
+      return shuffle(cells);
+    }
+  }
+  function setupScratchTile(tile, card){
+    const resize=()=>{ const r=tile.canvas.getBoundingClientRect(); tile.canvas.width=r.width; tile.canvas.height=r.height; paintOverlay(); };
+    const ro=new ResizeObserver(resize); ro.observe(tile.el); resize();
+    let isDrawing=false;
+    tile.canvas.addEventListener('pointerdown', e=>{ if(tile.revealed||gameOver) return; isDrawing=true; scratch(e); });
+    tile.canvas.addEventListener('pointermove', e=>{ if(!isDrawing||tile.revealed||gameOver) return; scratch(e); });
+    tile.canvas.addEventListener('pointerup', ()=>{ if(tile.revealed||gameOver) return; isDrawing=false; revealSmooth(tile, card); });
+    tile.canvas.addEventListener('pointerleave', ()=>{ if(isDrawing){ isDrawing=false; revealSmooth(tile, card); } });
+    function paintOverlay(){
+      const w=tile.canvas.width, h=tile.canvas.height;
+      const g=tile.ctx.createLinearGradient(0,0,w,h); g.addColorStop(0,'#cbd5e1'); g.addColorStop(1,'#94a3b8');
+      tile.ctx.fillStyle=g; tile.ctx.fillRect(0,0,w,h);
+      tile.ctx.fillStyle='rgba(15,23,42,.9)'; tile.ctx.font='700 16px system-ui'; tile.ctx.textAlign='center'; tile.ctx.fillText('RASPA', w/2, h/2);
+      tile.ctx.globalCompositeOperation='destination-out';
+    }
+    function scratch(e){
+      const r=tile.canvas.getBoundingClientRect();
+      const p = e.touches? e.touches[0] : e;
+      const x=p.clientX - r.left, y=p.clientY - r.top;
+      tile.ctx.beginPath(); tile.ctx.arc(x,y,18,0,Math.PI*2); tile.ctx.fill();
+    }
+  }
+  function revealSmooth(tile, card){
+    const img = tile.ctx.getImageData(0,0,tile.canvas.width,tile.canvas.height).data;
+    let cleared=0, total=img.length/4;
+    for(let i=3;i<img.length;i+=4){ if(img[i]===0) cleared++; }
+    const pct = cleared/total;
+    if(pct < 0.05) return;
+    let opacity=1;
+    const fade=setInterval(()=>{
+      opacity-=0.15; tile.canvas.style.opacity=opacity;
+      if(opacity<=0){ clearInterval(fade); tile.revealed=true; tile.canvas.style.pointerEvents='none'; evaluateBoard(card); }
+    }, 30);
+  }
+  function evaluateBoard(card){
+    if(gameOver) return;
+    const statusEl = document.getElementById('status');
+    const revealedNow = tiles.filter(t=>t.revealed).length;
+    const countsNow = tiles.reduce((m,t)=>{ if(t.revealed){ m[t.value]=(m[t.value]||0)+1; } return m; }, {});
+    const prizeCount = (countsNow[card.prize]||0);
+    if(card.prize && card.prize!=='SIN PREMIO' && prizeCount >= 3){
+      gameOver = true;
+      statusEl.innerHTML = `🎉 <strong>¡Ganaste!</strong> Premio: <strong>${card.prize}</strong>`;
+      document.getElementById('winPrizeText').textContent = card.prize;
+      document.getElementById('winModal').showModal();
+      pushLog({ts:new Date().toISOString(), evento:'GANADOR', ticket:card.ticket, token:card.token, prize:card.prize, nombre:card.nombre, cedula:card.cedula, telefono:card.telefono, estado:card.estado});
+      setTimeout(()=>{
+        document.getElementById('winModal').close();
+        cardArea.innerHTML='<div style="text-align:center;padding:60px 20px;font-size:20px;font-weight:700;color:#b30000">🎯 Juego terminado.<br>Haz clic en <strong>Nueva Tarjeta</strong> para jugar otra vez.</div>';
+      },3000);
+      return;
+    }
+    statusEl.textContent = `Casillas reveladas: ${revealedNow}/9`;
+    if(revealedNow === 9){
+      document.getElementById('referModal').showModal();
+      pushLog({ts:new Date().toISOString(), evento:'SIN_PREMIO', ticket:card.ticket, token:card.token});
+    }
+  }
+
+  // ===== Toast
+  function showToast(msg){
+    let t=document.createElement('div');
+    t.className='toast';
+    t.textContent=msg;
+    document.body.appendChild(t);
+    setTimeout(()=>t.classList.add('show'),50);
+    setTimeout(()=>{t.classList.remove('show');setTimeout(()=>t.remove(),400)},5000);
+  }
+
+  // ===== Duplicates control (cédula & teléfono) =====
+  function existsCardBy(field, value){
+    const cards = getLS(CONFIG.STORAGE_KEYS.CARDS, []);
+    return cards.some(c => (c && typeof c[field] !== 'undefined') && String(c[field]).trim() === String(value).trim());
+  }
+  function validateNoDuplicates(cedula, telefono){
+    if(existsCardBy('cedula', cedula)){
+      showToast('⚠️ Esta cédula ya fue registrada. Verifica los datos.');
+      return { ok:false, reason:'cedula' };
+    }
+    if(existsCardBy('telefono', telefono)){
+      showToast('⚠️ Este teléfono ya fue registrado. Verifica los datos.');
+      return { ok:false, reason:'telefono' };
+    }
+    return { ok:true };
+  }
+
+  // ===== Botonera / Modales =====
+  const startModal = document.getElementById('startModal');
+  document.getElementById('closeStart').addEventListener('click', () => startModal.close());
+  const countersModal = document.getElementById('countersModal');
+  document.getElementById('btnVerContadores').addEventListener('click', ()=>{ renderCounters(); countersModal.showModal(); });
+  document.getElementById('closeCounters').addEventListener('click', ()=> countersModal.close());
+  document.getElementById('downloadCsvInModal').addEventListener('click', downloadCSV);
+  const winModal = document.getElementById('winModal');
+  document.getElementById('closeWin').addEventListener('click', ()=> winModal.close());
+  const referModal = document.getElementById('referModal');
+
+  // No quiero → volver a pantalla principal
+  document.getElementById('noRefer').addEventListener('click', ()=>{
+    referModal.close();
+    cardArea.innerHTML = '<div style="text-align:center;padding:60px 20px;font-size:20px;font-weight:700;color:#b30000">🔙 Volviste a la pantalla principal.<br>Haz clic en <strong>Nueva Tarjeta</strong> para jugar otra vez.</div>';
+  });
+
+  // Enviar referido → guarda y crea nueva tarjeta automática (mismo token)
+  document.getElementById('sendRefer').addEventListener('click', ()=>{
+    const f = document.getElementById('referForm');
+    if(!f.reportValidity()) return;
+    const r_nombre = (f.r_nombre ? f.r_nombre.value.trim() : '') || null;
+    const r_cel = (f.r_cel ? f.r_cel.value.trim() : '') || null;
+
+    const cardsAll = getLS(CONFIG.STORAGE_KEYS.CARDS, []);
+    const last = cardsAll[cardsAll.length-1] || {};
+
+    pushLog({
+      ts: new Date().toISOString(),
+      evento: 'REFERIDO',
+      ticket: (last.ticket ?? null),
+      token: (last.token ?? null),
+      prize: (last.prize ?? null),
+      nombre: (last.nombre ?? null),
+      cedula: (last.cedula ?? null),
+      telefono: (last.telefono ?? null),
+      estado: (last.estado ?? null),
+      ref_nombre: r_nombre,
+      ref_telefono: r_cel
+    });
+
+    showToast('✅ Referido guardado correctamente.');
+    referModal.close();
+
+    const np = nextPrize();
+    if(np && last){
+      const newTicket = pad(np.index+1,4);
+      const newCard = {
+        ticket: newTicket,
+        token: (last.token ?? null),
+        nombre: (last.nombre ?? null),
+        cedula: (last.cedula ?? null),
+        telefono: (last.telefono ?? null),
+        estado: (last.estado ?? null),
+        prize: (np.prize ?? null),
+        createdAt: Date.now()
+      };
+      registerCard(newCard);
+      pushLog({ts:new Date().toISOString(), evento:'NUEVA_TARJETA_AUTOMATICA', ticket:newTicket, token:newCard.token, prize:newCard.prize, nombre:newCard.nombre, cedula:newCard.cedula, telefono:newCard.telefono, estado:newCard.estado, ref_nombre:null, ref_telefono:null});
+      renderCard(newCard);
+      showToast('🎯 Nueva tarjeta creada automáticamente para continuar jugando');
+    }
+  });
+
+  // Nueva tarjeta → formulario
+  document.getElementById('btnNuevaTarjeta').addEventListener('click', ()=>{
+    document.getElementById('startForm').reset();
+    startModal.showModal();
+  });
+
+  // Crear tarjeta (manual) con dedup previo y consumo de premio
+  document.getElementById('startSubmit').addEventListener('click', ()=>{
+    const f = document.getElementById('startForm');
+    if(!f.reportValidity()) return;
+    // DEDUP
+    const ced = f.s_cedula.value.trim();
+    const tel = f.s_telefono.value.trim();
+    const dupe = validateNoDuplicates(ced, tel);
+    if(!dupe.ok){
+      if(dupe.reason === 'cedula') { f.s_cedula.focus(); }
+      else if(dupe.reason === 'telefono') { f.s_telefono.focus(); }
+      return;
+    }
+    const np = nextPrize();
+    if(!np){ alert('Se han agotado las 1400 tarjetas.'); return; }
+    const ticket = pad(np.index+1, 4);
+    const token = tokenGen(12);
+    const card = {
+      ticket, token,
+      nombre: f.s_nombre.value.trim(),
+      cedula: ced,
+      telefono: tel,
+      estado: f.s_estado.value,
+      prize: np.prize,
+      createdAt: Date.now()
+    };
+    registerCard(card);
+    pushLog({ts:new Date().toISOString(), evento:'NUEVA_TARJETA', ticket, token, prize: card.prize, nombre: card.nombre, cedula: card.cedula, telefono: card.telefono, estado: card.estado});
+    renderCard(card);
+    startModal.close();
+  });
+  </script>
+</body>
+</html>
